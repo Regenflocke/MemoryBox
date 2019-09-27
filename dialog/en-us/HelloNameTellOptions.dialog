@@ -1,1 +1,2 @@
 Hello {{username}} nice to meet you. I can tell you your reminders or do your exercises with you. What would you like to do?
+Hi {{username}} I saved your pill reminders for you and can practice your movements exercises with you. What would you like to do?
