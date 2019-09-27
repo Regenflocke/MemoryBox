@@ -59,19 +59,80 @@ class MemoryBoxSkill(MycroftSkill):
         #say hello and ask for name
         name = self.get_user_response("hello")
         #got name from user and ask what to do next
-        choosenOption = self.get_response("HelloNameTellOptions", data={'username': name}) 
 
-        exerciseAnswer = ['I want to do my exercises', 'do my exercies', 'exercises']
-        timerAnswers = ['tell me the next reminder', 'reminder', 'the next reminder', 'next reminder']
-        helpAnswers = ['can you tell me the options again?', 'what can I do?']
+        choosenOption = self.get_response("HelloNameTellOptions", data={'username': name})
+        self.choose_option(choosenOption, name)
+
+
+    def choose_option(self, choosenOption, name):
+
+        exerciseAnswer = ['I want to do my exercises', 'do my exercises', 'do my exercise', 'exercise', 'exercises', 'my exercises']
+        reminderAnswers = ['tell me the next reminder', 'reminder', 'the next reminder', 'next reminder', 'memory box reminder']
+        helpAnswers = ['can you tell me the options again?', 'what can I do?', '']
 
         if choosenOption in exerciseAnswer:
-            self.speak_dialog("here comes an exercise")
-        elif choosenOption in timerAnswers:
-            self.speak_dialog("here comes a timer")
+            doExercise = self.get_response("exercise", data={'username': name})
+            self.do_exercise(doExercise, name)
+        elif choosenOption in reminderAnswers:
+            self.get_next_reminder(self.get_response("getTimerForWhichDate"))
         elif choosenOption in helpAnswers:
-            self.speak_dialog("I can help you")
+            choosenOption = self.get_response("Do you want to do your exercises or get the next reminder?")
 
+    def do_exercise(self, doExercise, name):
+        if doExercise == 'yes':
+            goOnExer= self.get_response("firstStepExer")
+            self.go_on_exercise(goOnExer)
+        elif doExercise == 'no':
+            choosenOption = self.get_response("so what about doing your exercises or do you want to know when you have to take your pills again?")
+            self.choose_option(choosenOption, name)
+            #self.do_exercise(doExercise)
+
+    def go_on_exercise(self, goOnExer):
+        if  goOnExer == 'yes':
+            self.speak_dialog("secondStepExer")
+        elif goOnExer == 'no':
+            self.speak_dialog("so please finde a place and start again")
+
+    @intent_file_handler('GetRemindersForDay.intent')
+    def get_reminders_for_day(self, msg=None):
+        """ List all reminders for the specified date. """
+        if 'date' in msg.data:
+            date, _ = extract_datetime(msg.data['date'], lang=self.lang)
+        else:
+            date, _ = extract_datetime(msg.data['utterance'], lang=self.lang)
+
+        if 'reminders' in self.settings:
+            reminders = [r for r in self.settings['reminders']
+                         if deserialize(r[1]).date() == date.date()]
+            if len(reminders) > 0:
+                for r in reminders:
+                    reminder, dt = (r[0], deserialize(r[1]))
+                    self.speak(reminder + ' at ' + nice_time(dt))
+                return
+        self.speak_dialog('NoUpcoming')
+
+    def get_next_reminder(self, msg=None):
+        """ Get the first upcoming reminder. """
+        if len(self.settings.get('reminders', [])) > 0:
+            reminders = [(r[0], deserialize(r[1]))
+                         for r in self.settings['reminders']]
+            next_reminder = sorted(reminders, key=lambda tup: tup[1])[0]
+
+            if is_today(next_reminder[1]):
+                self.speak_dialog('NextToday',
+                                  data={'time': nice_time(next_reminder[1]),
+                                        'reminder': next_reminder[0]})
+            elif is_tomorrow(next_reminder[1]):
+                self.speak_dialog('NextTomorrow',
+                                  data={'time': nice_time(next_reminder[1]),
+                                        'reminder': next_reminder[0]})
+            else:
+                self.speak_dialog('NextOtherDate',
+                                  data={'time': nice_time(next_reminder[1]),
+                                        'date': nice_date(next_reminder[1]),
+                                        'reminder': next_reminder[0]})
+        else:
+            self.speak_dialog('NoUpcoming')
 
 def create_skill():
     return MemoryBoxSkill()
